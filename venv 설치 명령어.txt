@@ -1,0 +1,8 @@
+디렉토리 이동
+
+# 1. 해당 PC에 맞게 새 가상환경 생성
+python -m venv .venv
+# 2. 가상환경 활성화 (Windows 기준)
+.\.venv\Scripts\activate
+# 3. 필요한 라이브러리 일괄 설치
+pip install -r requirements.txt
