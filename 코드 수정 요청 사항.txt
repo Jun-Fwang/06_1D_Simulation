@@ -1,0 +1,194 @@
+결과 확인 탭을 조금 더 전문적으로 수정하고 싶어
+아래의 코드에서 표현하는 표나 그래프에는 뭐 가 있는지 확인해보고 정리해줘
+아래에서 표현하는 표와 그래프를 결과 분석패널에서 확인할 수 있도록 해줬으면 좋겠어:
+
+""" 연결 시뮬레이션 - 후처리함수 """
+class Simulation_History_Shower:
+    """History = history
+        History_Shower = Simulation_History_Shower(History,12)
+        History_Shower.Energy_Balance_Table()
+        History_Shower.Energy_Balance_Curve()
+        History_Shower.Force_Displacement()
+        History_Shower.Time_Force()"""
+    # 히스토리 데이터 및 차량 수 입력
+    def __init__(self,History,Number_of_Car): 
+        self.History = History
+        self.Number_of_Car = Number_of_Car
+        
+    # 테이블 출력 : 에너지 밸런스  
+    def Energy_Balance_Table(self): 
+        Starting_Kinetic_Energy = self.History.iloc[0]['Kinetic_Energy [kJ]']
+        Final_Kinetic_Energy = self.History.iloc[-1]['Kinetic_Energy [kJ]']
+        Global_Energy_Gap = f"{round((self.History.iloc[-1]['Global_Energy [kJ]']/self.History.iloc[0]['Global_Energy [kJ]']-1)*100,1)}"
+        Final_Friction_Energy = self.History.iloc[-1]['Friction_Energy [kJ]']
+        Final_Internal_Energy = self.History.iloc[-1]['Internal_Energy [kJ]']
+        Energy_Balance_Table = pd.DataFrame({ '1' : [   'Global_Energy_Increase [%]',
+                                                        'Starting_Kinetic_Energy [kJ]',
+                                                        'Final_Kinetic_Energy [kJ]',
+                                                        'Energy_Dissipation_of_Couplers [kJ]',
+                                                        'Energy_Dissipation_of_Brakes [kJ]'],
+                                              '2' : [   Global_Energy_Gap,
+                                                        round(Starting_Kinetic_Energy,1),
+                                                        round(Final_Kinetic_Energy,1),
+                                                        round(Final_Internal_Energy,1),
+                                                        round(Final_Friction_Energy,1) ]})
+        display(Energy_Balance_Table)
+        
+    # 테이블 출력 : 하중 - 변위 - 에너지
+    def force_stroke_energy_table(self):
+        # 인덱스 설정
+        index = [f'Coupler_{str(i).zfill(2)}' for i in range(self.Number_of_Car-1)]
+        # Force
+        force_car_columns = [f'Coupler_Force_{str(i).zfill(2)} [kN]' for i in range(self.Number_of_Car-1)]
+        force_filtered_df = self.History[force_car_columns]
+        force_max_values = force_filtered_df.max()
+        force_max_values.index = index
+        force_max_values = round(force_max_values, 1).rename('Maximum_Force') # Series로 변환하고 이름을 설정
+        # Stroke
+        displacement_car_columns = [f'Coupler_Displacement_{str(i).zfill(2)} [mm]' for i in range(self.Number_of_Car-1)]
+        displacement_filtered_df = self.History[displacement_car_columns]
+        displacement_max_values = displacement_filtered_df.max()
+        displacement_max_values.index = index
+        displacement_max_values = round(displacement_max_values, 1).rename('Maximum_Stroke')
+        # Energy
+        energy_car_columns = [f'Coupler_Internal_Energy_{str(i).zfill(2)} [kJ]' for i in range(self.Number_of_Car-1)]
+        energy_filtered_df = self.History[energy_car_columns]
+        energy_max_values = energy_filtered_df.max()
+        energy_max_values.index = index
+        energy_max_values = round(energy_max_values, 1).rename('Maximum_Energy')
+    
+
+        # 데이터 프레임 가로로 결합
+        summary_df = pd.concat([force_max_values, displacement_max_values, energy_max_values], axis=1)
+
+        # 결과 출력
+        display(summary_df)
+        
+    # 테이블 출력 : 차량 운동 정보
+    def car_kinematics_information(self):
+        index = [f'Car_{str(i).zfill(2)}' for i in range(self.Number_of_Car)]
+        # travel
+        travel_car_columns = [f'Car_Displacement_Difference_{str(i).zfill(2)} [mm]' for i in range(self.Number_of_Car)]
+        travel_filtered_df = self.History[travel_car_columns]
+        travel_last_values = travel_filtered_df.max()#iloc[-1]
+        travel_last_values.index = index
+        travel_last_values = round(travel_last_values, 1).rename('Maximum_travel [mm]') # Series로 변환하고 이름을 설정
+        
+        
+        vel_car_columns = [f'Car_Velocity_{str(i).zfill(2)} [km/h]' for i in range(self.Number_of_Car)]
+        vel_filtered_df = self.History[vel_car_columns]
+        vel_max_values = vel_filtered_df.max()#iloc[-1]
+        vel_max_values.index = index
+        vel_max_values = round(vel_max_values, 1).rename('Maximum_vel [km/h]') # Series로 변환하고 이름을 설정
+        
+        acc_car_columns = [f'Car_Acceleration_{str(i).zfill(2)} [g]' for i in range(self.Number_of_Car)]
+        acc_filtered_df = self.History[acc_car_columns]
+        # acc_max_values = max(acc_filtered_df.max(), acc_filtered_df.min(), key=abs) # 절대값이 높은 값을 절대값으로 표시
+        acc_max_values = acc_filtered_df.apply(lambda x: x.min() if abs(x.min()) > abs(x.max()) else x.max()) # 절대값이 높은 값을 원값으로 표시
+        acc_max_values.index = index
+        acc_max_values = round(acc_max_values, 1).rename('Maximum_acceleration [g]') # Series로 변환하고 이름을 설정
+        
+        # 'Car_Acceleration' 데이터에 대해 30개의 이동 평균을 구하고, 그 중 최댓값을 추출
+        acc30_car_columns = [f'Car_Acceleration_{str(i).zfill(2)} [g]' for i in range(self.Number_of_Car)]
+        acc30_filtered_df = self.History[acc30_car_columns]
+        acc30_moving_avg = acc30_filtered_df.rolling(window=int(30/self.History['Time [ms]'][1])).mean()# 이동 평균 계산
+        # acc30_max_values = max(acc30_filtered_df.max(), acc30_filtered_df.min(), key=abs) # 절대값이 높은 값을 절대값으로 표시
+        acc30_max_values = acc30_filtered_df.apply(lambda x: x.min() if abs(x.min()) > abs(x.max()) else x.max()) # 절대값이 높은 값을 원값으로 표시
+        acc30_max_values.index = index# 인덱스와 이름 설정
+        acc30_max_values = round(acc30_max_values, 1).rename('Maximum_acceleration_30ms [g]')
+        
+        # 'Car_Acceleration' 데이터에 대해 30개의 이동 평균을 구하고, 그 중 최댓값을 추출
+        acc120_car_columns = [f'Car_Acceleration_{str(i).zfill(2)} [g]' for i in range(self.Number_of_Car)]
+        acc120_filtered_df = self.History[acc120_car_columns]
+        acc120_moving_avg = acc120_filtered_df.rolling(window=int(120/self.History['Time [ms]'][1])).mean()# 이동 평균 계산
+        # acc120_max_values = max(acc120_filtered_df.max(), acc120_filtered_df.min(), key=abs) # 절대값이 높은 값을 절대값으로 표시
+        acc120_max_values = acc120_filtered_df.apply(lambda x: x.min() if abs(x.min()) > abs(x.max()) else x.max()) # 절대값이 높은 값을 원값으로 표시
+        acc120_max_values.index = index# 인덱스와 이름 설정
+        acc120_max_values = round(acc120_max_values, 1).rename('Maximum_acceleration_30ms [g]')
+        
+        summary_df = pd.concat([travel_last_values,vel_max_values,acc_max_values,acc30_max_values,acc120_max_values], axis=1)
+
+        # 결과 출력
+        display(summary_df)
+        
+        
+    # 2차원 그래프 만드는 함수 
+    def Curve_shower(self, Title, x_label, y_label, x_list, y_list, x_lim, y_lim,Multiple_Coefficient):
+        History = self.History
+        plt.figure(figsize=(20, 5))
+        plt.title(Title, fontweight='bold', fontsize=20)
+        y_name_list = ['M6-M5', 'M5-M4', 'M4-M3', 'M3-M2', 'M2-M1', 'M1-S1', 'S1-S2', 'S2-S3', 'S3-S4', 'S4-S5', 'S5-S6']
+        # y_name_list = ['M6', 'M5', 'M4', 'M3', 'M2', 'M1', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+        for i in range(len(x_list)):
+            plt.plot(History[x_list[i]], History[y_list[i]]*Multiple_Coefficient, label=y_name_list[i], linewidth=3)
+        plt.grid()
+        plt.tick_params(axis='both', labelsize=15)
+        plt.xlabel(x_label,fontsize = 25)
+        plt.ylabel(y_label,fontsize = 25)
+        plt.legend(loc='best', ncol=2, fontsize=13, frameon=True, shadow=True)  #loc = 'best'
+        plt.xlim(x_lim)      # X축의 범위: [xmin, xmax]
+        plt.ylim(y_lim)     # Y축의 범위: [ymin, ymax]
+        plt.show()
+
+    def Energy_Balance_Curve(self):
+        Title = 'Energy Balance'
+        x_label = 'Time [ms]'
+        y_label = 'Energy [kJ]'
+        x_list = ['Time [ms]','Time [ms]','Time [ms]','Time [ms]']
+        y_list = ['Global_Energy [kJ]','Kinetic_Energy [kJ]','Internal_Energy [kJ]','Friction_Energy [kJ]']
+        self.Curve_shower(Title, x_label, y_label, x_list, y_list, x_lim=[0,4000], y_lim=[0,1400],Multiple_Coefficient=1)
+        
+    def Time_Acceleration(self):
+        Title = 'Time - Acceleration'
+        x_label = 'Time [ms]'
+        y_label = 'Acceleration [kN]'
+        x_list = []
+        y_list = []
+        for i in range(self.Number_of_Car):
+            x_list.append(f'Time [ms]')
+            y_list.append(f'Car_Acceleration_{str(i).zfill(2)} [g]')
+        self.Curve_shower(Title, x_label, y_label, x_list, y_list, x_lim=[0,4000], y_lim=[-2.5,2.5],Multiple_Coefficient=1)
+    
+    def Time_Force(self):
+        Title = 'Time - Force'
+        x_label = 'Time [ms]'
+        y_label = 'Force [kN]'
+        x_list = []
+        y_list = []
+        for i in range(self.Number_of_Car-1):
+            x_list.append(f'Time [ms]')
+            y_list.append(f'Coupler_Force_{str(i).zfill(2)} [kN]')
+        self.Curve_shower(Title, x_label, y_label, x_list, y_list, x_lim=None, y_lim=None,Multiple_Coefficient=1)
+
+    def Force_Displacement(self):
+        Title = 'Force - Displacement'
+        x_label = 'Displacement [mm]'
+        y_label = 'Force [kN]'
+        x_list = []
+        y_list = []
+        for i in range(self.Number_of_Car-1):
+            x_list.append(f'Coupler_Displacement_{str(i).zfill(2)} [mm]')
+            y_list.append(f'Coupler_Force_{str(i).zfill(2)} [kN]')
+        self.Curve_shower(Title, x_label, y_label, x_list, y_list, x_lim=[0,400], y_lim=[0,2000],Multiple_Coefficient=1)
+        
+        # x_list = []
+        # y_list = []
+        # x_list.append(f'Coupler_Displacement_[{str(self.Number_of_Car//2-1).zfill(2)}] [mm]')
+        # y_list.append(f'Coupler_Force_[{str(self.Number_of_Car//2-1).zfill(2)}] [kN]')
+
+
+history_shower = Simulation_History_Shower(history,12)
+history_shower.Energy_Balance_Table()
+history_shower.force_stroke_energy_table()
+history_shower.car_kinematics_information()
+# history_shower.Curve_shower()
+# 
+history_shower.Energy_Balance_Curve()
+# history_shower.Time_Acceleration()
+history_shower.Time_Force()
+history_shower.Force_Displacement()
+
+FRONT_COUPLER.Buffer_history()
+
+
+
