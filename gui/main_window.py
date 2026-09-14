@@ -17,7 +17,6 @@ from gui.tab_sampling import SamplingTab
 from gui.tab_model_training import ModelTrainingTab
 from gui.tab_buffer_model import BufferModelTab
 from gui.tab_simulation import SimulationTab
-from gui.tab_sim_result import SimResultTab
 from gui.tab_result_analysis import ResultAnalysisTab
 
 _STYLE_ACTIVE = """
@@ -91,6 +90,10 @@ class MainWindow(QMainWindow):
                 self.mode_stack.setCurrentIndex(0)
                 self._switch_mode(0)
 
+        # 결과 분석 탭의 AI 관련 서브탭(수치 검증, 연결기 데이터 분석) 숨김/표시
+        if hasattr(self, 'tab_result') and hasattr(self.tab_result, 'set_ai_tabs_visible'):
+            self.tab_result.set_ai_tabs_visible(enabled)
+
         # 상태 표시
         if hasattr(self, 'lbl_status'):
             self.lbl_status.setText("AI 모델링: " + ("활성" if enabled else "비활성"))
@@ -136,12 +139,10 @@ class MainWindow(QMainWindow):
         sim_tabs.setDocumentMode(True)
         self.tab_buffer    = BufferModelTab(self.model_registry)
         self.tab_sim       = SimulationTab(self.model_registry)
-        self.tab_sim_result = SimResultTab()
         self.tab_result    = ResultAnalysisTab()
-        sim_tabs.addTab(self.tab_buffer,     "① 완충기 모델 생성")
-        sim_tabs.addTab(self.tab_sim,        "② 시뮬레이션")
-        sim_tabs.addTab(self.tab_sim_result, "③ 결과 확인")
-        sim_tabs.addTab(self.tab_result,     "④ 결과 분석")
+        sim_tabs.addTab(self.tab_buffer,  "① 완충기 모델 생성")
+        sim_tabs.addTab(self.tab_sim,     "② 시뮬레이션")
+        sim_tabs.addTab(self.tab_result,  "③ 결과 분석")
         self.sim_tabs = sim_tabs
 
         # 모드 1: 완충기 모델 학습
@@ -173,13 +174,12 @@ class MainWindow(QMainWindow):
             _STYLE_ACTIVE if idx == 1 else _STYLE_INACTIVE)
 
     def _connect_sim_to_result(self):
-        """tab_simulation 워커 완료 시 결과를 tab_sim_result 및 tab_result로 전달."""
+        """tab_simulation 워커 완료 시 결과를 tab_result로 전달."""
         orig = self.tab_sim._on_simulation_done
 
         def _wrapped(result):
             orig(result)
-            self.tab_sim_result.set_result(result, self.tab_sim._mode)
-            self.tab_result.set_sim_result(result)
+            self.tab_result.set_sim_result(result, self.tab_sim._mode)
 
         self.tab_sim._on_simulation_done = _wrapped
 

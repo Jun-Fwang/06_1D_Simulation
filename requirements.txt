@@ -1,0 +1,18 @@
+# 1D Collision Simulation Processor Dependencies
+
+# GUI Framework
+PyQt6>=6.5.0
+
+# Numerical Computing & Data Analysis
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+scikit-learn>=1.3.0
+
+# Excel File Support (.xlsx)
+openpyxl>=3.1.0
+
+# Optional Deep Learning Backends
+# (PyTorch CPU build for AI buffer model training/evaluation)
+torch>=2.2.0

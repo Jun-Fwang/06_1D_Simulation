@@ -3,8 +3,8 @@ main.py
 GUI 1D 시뮬레이션 프로세서 진입점.
 실행: python main.py
 """
-#라이브러리 임포트
 
+#라이브러리 임포트
 import sys
 import os
 
@@ -17,11 +17,9 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from gui.main_window import MainWindow
 
-
 def main():
     # High-DPI 지원
-    QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
     app = QApplication(sys.argv)
     app.setApplicationName("1D 충돌 시뮬레이션 프로세서")
@@ -30,7 +28,6 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     main()
