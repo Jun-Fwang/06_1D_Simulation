@@ -3,6 +3,8 @@ main.py
 GUI 1D 시뮬레이션 프로세서 진입점.
 실행: python main.py
 """
+#라이브러리 임포트
+
 import sys
 import os
 
