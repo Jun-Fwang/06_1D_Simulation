@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("1D 충돌 시뮬레이션 프로세서")
-        self.resize(1400, 860)
+        self.resize(1500, 900)   # Coupling 패널에서 열차 5량이 한 행에 배치되도록 폭 확보
 
         # 앱 전역 완충기 모델 레지스트리
         self.model_registry: dict = {}

@@ -51,7 +51,7 @@ class BufferTableWidget(QWidget):
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels(["Displacement [mm]", "Force [kN]"])
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setMinimumWidth(240)
+        self.table.setMinimumWidth(120)
         self.table.cellChanged.connect(self._on_cell_changed)
         self.table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
         self.table.installEventFilter(self)

@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QDialog, QDialogButtonBox, QInputDialog, QSizePolicy,
     QFrame, QSpinBox,
 )
-from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QRect, QSize, QTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QPainterPath
 
 
@@ -193,35 +193,56 @@ class TrainCarWidget(QWidget):
         row_vel.addStretch()
         layout.addLayout(row_vel)
 
-        # 마찰계수 (라벨-입력 좌우 배치)
-        self.spin_mu = QDoubleSpinBox()
-        self.spin_mu.setRange(0, 1)
-        self.spin_mu.setValue(0.0)
-        self.spin_mu.setSingleStep(0.01)
-        self.spin_mu.setDecimals(3)
-        self.spin_mu.setToolTip("마찰계수")
-        self.spin_mu.setFixedWidth(98)
-        row_mu = QHBoxLayout()
-        row_mu.setContentsMargins(0, 0, 0, 0)
-        row_mu.setSpacing(6)
-        lbl_mu = QLabel("μ")
-        lbl_mu.setStyleSheet("font-size: 9px; color: #444;")
-        lbl_mu.setFixedWidth(54)
-        row_mu.addWidget(lbl_mu)
-        row_mu.addWidget(self.spin_mu)
-        row_mu.addStretch()
-        layout.addLayout(row_mu)
+        # 마찰계수 (정지/동 마찰계수 각각 직접 입력)
+        self.spin_mu_static = QDoubleSpinBox()
+        self.spin_mu_static.setRange(0, 1)
+        self.spin_mu_static.setValue(0.0)
+        self.spin_mu_static.setSingleStep(0.01)
+        self.spin_mu_static.setDecimals(3)
+        self.spin_mu_static.setToolTip("정지 마찰계수 (static)")
+        self.spin_mu_static.setFixedWidth(98)
+        row_mu_static = QHBoxLayout()
+        row_mu_static.setContentsMargins(0, 0, 0, 0)
+        row_mu_static.setSpacing(6)
+        lbl_mu_static = QLabel("μ_s")
+        lbl_mu_static.setStyleSheet("font-size: 9px; color: #444;")
+        lbl_mu_static.setFixedWidth(54)
+        row_mu_static.addWidget(lbl_mu_static)
+        row_mu_static.addWidget(self.spin_mu_static)
+        row_mu_static.addStretch()
+        layout.addLayout(row_mu_static)
 
-        self._on_mode_changed("Moving")
+        self.spin_mu_kinetic = QDoubleSpinBox()
+        self.spin_mu_kinetic.setRange(0, 1)
+        self.spin_mu_kinetic.setValue(0.0)
+        self.spin_mu_kinetic.setSingleStep(0.01)
+        self.spin_mu_kinetic.setDecimals(3)
+        self.spin_mu_kinetic.setToolTip("동 마찰계수 (kinetic)")
+        self.spin_mu_kinetic.setFixedWidth(98)
+        row_mu_kinetic = QHBoxLayout()
+        row_mu_kinetic.setContentsMargins(0, 0, 0, 0)
+        row_mu_kinetic.setSpacing(6)
+        lbl_mu_kinetic = QLabel("μ_k")
+        lbl_mu_kinetic.setStyleSheet("font-size: 9px; color: #444;")
+        lbl_mu_kinetic.setFixedWidth(54)
+        row_mu_kinetic.addWidget(lbl_mu_kinetic)
+        row_mu_kinetic.addWidget(self.spin_mu_kinetic)
+        row_mu_kinetic.addStretch()
+        layout.addLayout(row_mu_kinetic)
+
+        # 신규 차량 기본 상태는 Stationary
+        self.combo_mode.setCurrentText("Stationary")
 
     def _on_mode_changed(self, mode: str):
         self._is_moving = (mode == "Moving")
         self.car_draw.set_moving(self._is_moving)
         if mode == "Stationary":
             self.spin_vel.setValue(0.0)
-            self.spin_mu.setValue(0.1)
+            self.spin_mu_static.setValue(0.12)
+            self.spin_mu_kinetic.setValue(0.1)
         else:
-            self.spin_mu.setValue(0.0)
+            self.spin_mu_static.setValue(0.0)
+            self.spin_mu_kinetic.setValue(0.0)
 
     def set_spring_visible(self, visible: bool):
         self._spring_visible = visible
@@ -231,8 +252,8 @@ class TrainCarWidget(QWidget):
         return {
             'mass': self.spin_mass.value(),
             'velocity_kmh': self.spin_vel.value(),
-            'mu_kinetic': self.spin_mu.value(),
-            'mu_static': self.spin_mu.value() * 1.2,
+            'mu_kinetic': self.spin_mu_kinetic.value(),
+            'mu_static': self.spin_mu_static.value(),
             'is_moving': self._is_moving,
             'spring_stiffness': self.spin_stiffness.value(),
         }
@@ -306,6 +327,7 @@ class TrainConfigWidget(QWidget):
         self._car_widgets: list[TrainCarWidget] = []
         self._coupler_widgets: list[CouplerWidget] = []
         self.car_spring_enabled = False
+        self._shown_once = False
         self._init_ui()
 
     def _init_ui(self):
@@ -338,7 +360,7 @@ class TrainConfigWidget(QWidget):
 
         # 안내 레이블
         hint = QLabel("ℹ  질량/속도/마찰계수는 각 칸에서 직접 입력.  "
-                      "v = 속도(km/h),  μ = 마찰계수  |  "
+                      "v = 속도(km/h),  μ_s = 정지 마찰계수,  μ_k = 동 마찰계수  |  "
                       "연결기(●)를 클릭하면 완충기 모델을 지정할 수 있습니다.")
         hint.setStyleSheet("color: #666; font-size: 11px; padding: 0 2px;")
         outer.addWidget(hint)
@@ -411,6 +433,13 @@ class TrainConfigWidget(QWidget):
         super().resizeEvent(event)
         # 창 크기 변화 후 레이아웃 재배치
         self._rebuild_rows()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._shown_once:
+            self._shown_once = True
+            # 최초 표시 시점에는 실제 뷰포트 폭이 아직 확정되지 않으므로 지연 재계산
+            QTimer.singleShot(0, self._rebuild_rows)
 
     def _rebuild_rows(self):
         """가시 스크롤 폭에 맞춰 한 줄에 들어가는 차량 수를 적응적으로 재구성한다."""

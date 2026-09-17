@@ -463,11 +463,14 @@ def f_coupling_simulation(car_mass_list: list, coupler_model_list: list,
     num_cars = len(car_mass_list)
     num_couplers = len(coupler_model_list)
 
-    # 기존 구조 유지: 위치와 속도는 차량 기준에서 계산하되,
-    # 내부 스프링은 두 반질량 포인트 좌/우 상태와 평균값으로 보고한다.
+    # 각 차량은 좌/우 반질량으로 나누고, 우측 반질량은 다음 연결기에 연결한다.
     car_displacement_list = [1000.0 * i for i in range(num_cars)]
     car_acceleration_list = [0.0] * num_cars
-    car_kinetic_energy_list = [0.5 * m * v ** 2 for m, v in zip(car_mass_list, car_velocity_list)]
+    half_mass_list = [mass / 2.0 for mass in car_mass_list]
+    car_kinetic_energy_list = [
+        0.5 * mass * velocity ** 2
+        for mass, velocity in zip(car_mass_list, car_velocity_list)
+    ]
     car_friction_energy_list = [0.0] * num_cars
 
     # 내부 스프링 상태: 좌/우 질량 포인트의 위치와 속도
@@ -478,6 +481,7 @@ def f_coupling_simulation(car_mass_list: list, coupler_model_list: list,
     left_acc = [0.0] * num_cars
     right_acc = [0.0] * num_cars
     spring_force = [0.0] * num_cars
+    spring_internal_energy = [0.0] * num_cars
 
     coupler_displacement_list = [0.0] * num_couplers
     coupler_velocity_list = [0.0] * num_couplers
@@ -497,7 +501,10 @@ def f_coupling_simulation(car_mass_list: list, coupler_model_list: list,
 
         kinetic_energy = sum(car_kinetic_energy_list)
         friction_energy = sum(car_friction_energy_list)
-        internal_energy = sum(coupler_internal_energy_list)
+        internal_energy = (
+            sum(coupler_internal_energy_list)
+            + sum(spring_internal_energy)
+        )
         global_energy = kinetic_energy + friction_energy + internal_energy
 
         if (global_energy / initial_energy - 1) > energy_increase_limit:
@@ -531,21 +538,13 @@ def f_coupling_simulation(car_mass_list: list, coupler_model_list: list,
 
         history_list.append(current_history)
 
-        # 상태 업데이트: 기존 연결 상태 + 내부 스프링 반작용
+        # 연결기 힘은 현재 반질량 상태에서 계산하고, 각 반질량에 직접 적용한다.
         t += dt
-        for i in range(num_cars):
-            # 단순히 스프링을 추가한 평균 모델: 좌/우 질량 점의 속도/변위를 동시에 갱신
-            left_disp[i] += left_vel[i] * dt
-            right_disp[i] += right_vel[i] * dt
-            left_vel[i] += left_acc[i] * dt
-            right_vel[i] += right_acc[i] * dt
-            car_displacement_list[i] = (left_disp[i] + right_disp[i]) / 2.0
-
         for i in range(num_couplers):
             coupler_displacement_list[i] = 1000.0 + (
-                car_displacement_list[i] - car_displacement_list[i + 1]
+                right_disp[i] - left_disp[i + 1]
             )
-            coupler_velocity_list[i] = car_velocity_list[i] - car_velocity_list[i + 1]
+            coupler_velocity_list[i] = right_vel[i] - left_vel[i + 1]
             coupler_force_list[i] = coupler_model_list[i](
                 coupler_displacement_list[i], coupler_velocity_list[i],
                 coupler_force_list[i], dt
@@ -554,43 +553,61 @@ def f_coupling_simulation(car_mass_list: list, coupler_model_list: list,
                 coupler_force_list[i] * coupler_velocity_list[i] * dt
             )
 
+        external_force_left = [0.0] * num_cars
+        external_force_right = [0.0] * num_cars
+        for i, force in enumerate(coupler_force_list):
+            external_force_right[i] -= force
+            external_force_left[i + 1] += force
+
         for i in range(num_cars):
-            if i == 0:
-                net_force = -coupler_force_list[0]
-            elif i == num_cars - 1:
-                net_force = coupler_force_list[-1]
-            else:
-                net_force = coupler_force_list[i - 1] - coupler_force_list[i]
-
-            friction_force = 0.0
-            if car_velocity_list[i] == 0:
-                if abs(net_force) <= mu_static_friction_list[i] * car_mass_list[i] * g:
-                    net_force = 0.0
-            else:
-                direction = -1 if car_velocity_list[i] > 0 else 1
-                friction_force = direction * mu_kinetic_friction_list[i] * car_mass_list[i] * g
-                if abs(car_velocity_list[i]) < mu_kinetic_friction_list[i] * g * dt:
-                    car_velocity_list[i] = 0.0
-                else:
-                    net_force += friction_force
-
-            # 내부 스프링 반작용을 각 차량에 반대 방향으로 나누어 적용
             spring_k = car_stiffness_list[i] if i < len(car_stiffness_list) else 10.0
             spring_force[i] = spring_k * (right_disp[i] - left_disp[i])
-            net_force_left = net_force / 2.0 - spring_force[i]
-            net_force_right = net_force / 2.0 + spring_force[i]
+            spring_internal_energy[i] = 0.5 * spring_k * (
+                right_disp[i] - left_disp[i]
+            ) ** 2
 
-            half_mass = car_mass_list[i] / 2.0
-            left_acc[i] = net_force_left / half_mass
-            right_acc[i] = net_force_right / half_mass
+            external_force = external_force_left[i] + external_force_right[i]
+            average_velocity = (left_vel[i] + right_vel[i]) / 2.0
+            if abs(average_velocity) < 1e-12:
+                static_limit = mu_static_friction_list[i] * car_mass_list[i] * g
+                if abs(external_force) <= static_limit:
+                    friction_force = -external_force
+                else:
+                    direction = -1 if external_force > 0 else 1
+                    friction_force = (
+                        direction
+                        * mu_kinetic_friction_list[i]
+                        * car_mass_list[i]
+                        * g
+                    )
+            else:
+                direction = -1 if average_velocity > 0 else 1
+                friction_force = (
+                    direction
+                    * mu_kinetic_friction_list[i]
+                    * car_mass_list[i]
+                    * g
+                )
 
-            # 좌/우 질량점 속도는 평균화된 차량 속도와 내부 스프링 분산을 반영
+            net_force_left = external_force_left[i] + friction_force / 2.0 + spring_force[i]
+            net_force_right = external_force_right[i] + friction_force / 2.0 - spring_force[i]
+
+            left_acc[i] = net_force_left / half_mass_list[i]
+            right_acc[i] = net_force_right / half_mass_list[i]
+
+            # Symplectic Euler: 힘을 계산한 뒤 속도와 위치를 각각 한 번 갱신한다.
             left_vel[i] += left_acc[i] * dt
             right_vel[i] += right_acc[i] * dt
+            left_disp[i] += left_vel[i] * dt
+            right_disp[i] += right_vel[i] * dt
             car_velocity_list[i] = (left_vel[i] + right_vel[i]) / 2.0
+            car_displacement_list[i] = (left_disp[i] + right_disp[i]) / 2.0
 
             car_acceleration_list[i] = (left_acc[i] + right_acc[i]) / 2.0
-            car_kinetic_energy_list[i] = 0.5 * car_mass_list[i] * car_velocity_list[i] ** 2
+            car_kinetic_energy_list[i] = (
+                0.5 * half_mass_list[i] * left_vel[i] ** 2
+                + 0.5 * half_mass_list[i] * right_vel[i] ** 2
+            )
             car_friction_energy_list[i] += abs(friction_force * car_velocity_list[i] * dt)
 
     if progress_callback:
