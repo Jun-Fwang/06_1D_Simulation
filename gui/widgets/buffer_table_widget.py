@@ -28,11 +28,16 @@ class BufferTableWidget(QWidget):
     data_changed = pyqtSignal()   # 데이터가 바뀔 때 방출 (공유 캔버스 연동용)
 
     def __init__(self, title: str = "커브", color: str = "C0",
-                 show_canvas: bool = True, parent=None):
+                 show_canvas: bool = True,
+                 defaults: list[tuple[float, float]] | None = None,
+                 parent=None):
         super().__init__(parent)
         self._color = color
         self._show_canvas = show_canvas
         self._building = False          # cellChanged 재귀 방지
+        self._default_rows = defaults or [
+            (0.0, 0.0), (50.0, 300.0), (100.0, 600.0), (150.0, 900.0)
+        ]
 
         # ── 레이아웃 ──────────────────────────────────────────────────
         root = QVBoxLayout(self)
@@ -58,7 +63,8 @@ class BufferTableWidget(QWidget):
         self.table.viewport().installEventFilter(self)
         lv.addWidget(self.table)
 
-        btn_row = QHBoxLayout()
+        btn_row1 = QHBoxLayout()
+        btn_row2 = QHBoxLayout()
         btn_add = QPushButton("+ 행 추가")
         btn_del = QPushButton("- 행 삭제")
         btn_normalize = QPushButton("정렬/원점 보정")
@@ -71,9 +77,12 @@ class BufferTableWidget(QWidget):
         btn_csv_load.clicked.connect(self._load_csv)
         btn_csv_save.clicked.connect(self._save_csv)
         btn_clear.clicked.connect(self._clear_all_rows)
-        for b in (btn_add, btn_del, btn_normalize, btn_csv_load, btn_csv_save, btn_clear):
-            btn_row.addWidget(b)
-        lv.addLayout(btn_row)
+        for b in (btn_add, btn_del, btn_normalize):
+            btn_row1.addWidget(b)
+        for b in (btn_csv_load, btn_csv_save, btn_clear):
+            btn_row2.addWidget(b)
+        lv.addLayout(btn_row1)
+        lv.addLayout(btn_row2)
         splitter.addWidget(left)
 
         # 오른쪽: 개별 그래프 (show_canvas=False 이면 숨김)
@@ -90,10 +99,9 @@ class BufferTableWidget(QWidget):
 
     # ── 기본값 ────────────────────────────────────────────────────────
     def _set_default_rows(self):
-        defaults = [(0.0, 0.0), (50.0, 300.0), (100.0, 600.0), (150.0, 900.0)]
         self._building = True
         self.table.setRowCount(0)
-        for d, f in defaults:
+        for d, f in self._default_rows:
             self._insert_row(d, f)
         self._building = False
         self._update_plot()

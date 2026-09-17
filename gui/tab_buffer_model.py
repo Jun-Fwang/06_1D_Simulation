@@ -153,15 +153,27 @@ class BufferModelTab(QWidget):
 
         load_grp = QGroupBox("로딩 커브")
         ll = QVBoxLayout(load_grp)
-        self.buf_load = BufferTableWidget(title="로딩", color="#1565C0",
-                                          show_canvas=False)
+        self.buf_load = BufferTableWidget(
+            title="로딩", color="#1565C0", show_canvas=False,
+            defaults=[
+                (0.0, 0.0), (6.0, 43.0), (20.0, 108.0), (30.5, 165.0),
+                (42.6, 220.0), (54.7, 278.0), (63.6, 349.0), (73.7, 419.0),
+                (82.9, 495.0), (92.0, 560.0), (100.0, 648.0),
+            ],
+        )
         ll.addWidget(self.buf_load)
         tables_row.addWidget(load_grp)
 
         unload_grp = QGroupBox("언로딩 커브")
         ul = QVBoxLayout(unload_grp)
-        self.buf_unload = BufferTableWidget(title="언로딩", color="#B71C1C",
-                                            show_canvas=False)
+        self.buf_unload = BufferTableWidget(
+            title="언로딩", color="#B71C1C", show_canvas=False,
+            defaults=[
+                (0.0, 0.0), (22.0, 10.0), (31.0, 17.0), (45.0, 27.0),
+                (53.0, 30.0), (69.0, 42.0), (80.0, 47.0), (85.0, 71.0),
+                (90.0, 93.0), (95.0, 129.0), (100.0, 167.0),
+            ],
+        )
         ul.addWidget(self.buf_unload)
         tables_row.addWidget(unload_grp)
 
@@ -172,7 +184,7 @@ class BufferModelTab(QWidget):
         pp.addWidget(QLabel("최대 스트로크 (mm):"))
         self.spin_max_stroke_csv = QDoubleSpinBox()
         self.spin_max_stroke_csv.setRange(1, 2000)
-        self.spin_max_stroke_csv.setValue(400)
+        self.spin_max_stroke_csv.setValue(100)
         pp.addWidget(self.spin_max_stroke_csv)
         pp.addSpacing(16)
         pp.addWidget(QLabel("전환 강성 k:"))
@@ -192,9 +204,9 @@ class BufferModelTab(QWidget):
         # 하단: 공유 캔버스 (로딩 + 언로딩 함께 표시)
         preview_grp = QGroupBox("커브 미리보기")
         pg_vl = QVBoxLayout(preview_grp)
-        self.piecewise_canvas = PlotCanvas(figsize=(8, 3))
+        self.piecewise_canvas = PlotCanvas(figsize=(8, 5))
         pg_vl.addWidget(self.piecewise_canvas)
-        vl.addWidget(preview_grp, stretch=1)
+        vl.addWidget(preview_grp, stretch=3)
 
         # 두 테이블의 data_changed → 공유 캔버스 갱신
         self.buf_load.data_changed.connect(self._update_piecewise_plot)
