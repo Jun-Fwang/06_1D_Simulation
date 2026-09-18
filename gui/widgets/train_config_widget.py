@@ -178,7 +178,7 @@ class TrainCarWidget(QWidget):
         # 속도 (라벨-입력 좌우 배치)
         self.spin_vel = QDoubleSpinBox()
         self.spin_vel.setRange(0, 200)
-        self.spin_vel.setValue(10.0)
+        self.spin_vel.setValue(5.0)
         self.spin_vel.setSingleStep(0.5)
         self.spin_vel.setToolTip("초기 속도 (km/h)")
         self.spin_vel.setFixedWidth(98)
@@ -381,7 +381,7 @@ class TrainConfigWidget(QWidget):
         for i, car in enumerate(self._car_widgets):
             if i < 5:
                 car.combo_mode.setCurrentText("Moving")
-                car.spin_vel.setValue(10.0)
+                car.spin_vel.setValue(5.0)
             else:
                 car.combo_mode.setCurrentText("Stationary")
 

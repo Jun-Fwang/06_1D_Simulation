@@ -141,7 +141,7 @@ class SimulationTab(QWidget):
         r1.addWidget(QLabel("종료 시간 (ms):"))
         self.spin_time = QDoubleSpinBox()
         self.spin_time.setRange(1, 100000)
-        self.spin_time.setValue(500)
+        self.spin_time.setValue(2000)
         self.spin_time.setDecimals(0)
         r1.addWidget(self.spin_time)
         r1.addStretch()
