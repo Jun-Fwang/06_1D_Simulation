@@ -253,7 +253,7 @@ class SimulationTab(QWidget):
         r2.addWidget(QLabel("충돌 속도 (km/h):"))
         self.spin_rw_vel = QDoubleSpinBox()
         self.spin_rw_vel.setRange(0.1, 200)
-        self.spin_rw_vel.setValue(10.0)
+        self.spin_rw_vel.setValue(5.0)
         r2.addWidget(self.spin_rw_vel)
         r2.addStretch()
         vl.addLayout(r2)

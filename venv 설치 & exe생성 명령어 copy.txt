@@ -1,8 +1,4 @@
 
-
-
-
-
 디렉토리 이동
 cd T:\5000_Python\06_1D_Simulation\Temp\1D_Simulation
 
@@ -17,4 +13,4 @@ pip install -r requirements.txt
 
 
 # exe로 만드는 경우
-pyinstaller --noconfirm --onefile --windowed main.py
+pyinstaller --noconfirm --onefile --icon=train_front_icon.ico --add-data "train_front_icon.ico;." --windowed main.py
